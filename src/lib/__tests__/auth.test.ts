@@ -124,3 +124,85 @@ test("getSession returns null for expired token", async () => {
 
   expect(session).toBeNull();
 });
+
+test("deleteSession deletes the auth-token cookie", async () => {
+  const { deleteSession } = await import("@/lib/auth");
+
+  await deleteSession();
+
+  expect(mockDelete).toHaveBeenCalledOnce();
+  expect(mockDelete).toHaveBeenCalledWith("auth-token");
+});
+
+test("verifySession returns null when no cookie in request", async () => {
+  const { verifySession } = await import("@/lib/auth");
+
+  const mockRequest = {
+    cookies: {
+      get: vi.fn().mockReturnValue(undefined),
+    },
+  } as any;
+
+  const session = await verifySession(mockRequest);
+
+  expect(session).toBeNull();
+  expect(mockRequest.cookies.get).toHaveBeenCalledWith("auth-token");
+});
+
+test("verifySession returns session payload for valid token in request", async () => {
+  const { createSession, verifySession } = await import("@/lib/auth");
+
+  // Create a session to get a valid token
+  await createSession("user-verify", "verify@example.com");
+  const validToken = mockSet.mock.calls[0][1];
+
+  const mockRequest = {
+    cookies: {
+      get: vi.fn().mockReturnValue({ value: validToken }),
+    },
+  } as any;
+
+  const session = await verifySession(mockRequest);
+
+  expect(session).not.toBeNull();
+  expect(session?.userId).toBe("user-verify");
+  expect(session?.email).toBe("verify@example.com");
+});
+
+test("verifySession returns null for invalid token in request", async () => {
+  const { verifySession } = await import("@/lib/auth");
+
+  const mockRequest = {
+    cookies: {
+      get: vi.fn().mockReturnValue({ value: "invalid-token" }),
+    },
+  } as any;
+
+  const session = await verifySession(mockRequest);
+
+  expect(session).toBeNull();
+});
+
+test("verifySession returns null for expired token in request", async () => {
+  const { SignJWT } = await import("jose");
+  const expiredToken = await new SignJWT({
+    userId: "user-expired",
+    email: "expired@example.com",
+    expiresAt: new Date(Date.now() - 1000),
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setExpirationTime(Math.floor(Date.now() / 1000) - 60)
+    .sign(JWT_SECRET);
+
+  const { verifySession } = await import("@/lib/auth");
+
+  const mockRequest = {
+    cookies: {
+      get: vi.fn().mockReturnValue({ value: expiredToken }),
+    },
+  } as any;
+
+  const session = await verifySession(mockRequest);
+
+  expect(session).toBeNull();
+});
