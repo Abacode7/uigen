@@ -59,7 +59,7 @@ jobs:
               }
             }
           
-          claude_args: '--allowed-tools MCP(playwright:*)'
+          claude_args: '--allowed-tools MCP(playwright:*) Bash(npm:*) Bash(node:*)'
 
           # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
           # prompt: 'Update the pull request description to include a summary of changes.'
